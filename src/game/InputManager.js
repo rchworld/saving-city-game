@@ -10,6 +10,7 @@ export class InputManager {
     this.pointerLocked = false;
     this.onDigit = null; // callback(number)
     this.onEnter = null; // callback()
+    this.onCtrl = null; // callback() — pick up / put down a child
 
     window.addEventListener('keydown', (e) => this._keydown(e));
     window.addEventListener('keyup', (e) => this._keyup(e));
@@ -25,10 +26,12 @@ export class InputManager {
 
   _keydown(e) {
     if (e.code.startsWith('Arrow')) e.preventDefault();
+    const alreadyDown = this.keys.has(e.code);
     this.keys.add(e.code);
     if (e.code === 'Enter' && this.onEnter) this.onEnter();
     const digitMatch = /^Digit([1-4])$/.exec(e.code);
     if (digitMatch && this.onDigit) this.onDigit(Number(digitMatch[1]));
+    if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && !alreadyDown && this.onCtrl) this.onCtrl();
   }
 
   _keyup(e) {

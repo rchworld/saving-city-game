@@ -81,3 +81,19 @@ export const ITEM_TYPES = {
 export const METEOR_SHOWER_DURATION = 9; // seconds
 export const SHIELD_DURATION = 15; // seconds before it naturally fades
 export const SWORD_RANGE = 6;
+
+// Interiors live far from the main play area so nothing overlaps; the
+// player is simply teleported there and back rather than swapping scenes.
+export const INTERIOR_ORIGINS = {
+  jangmi1: { x: -900, z: -900 },
+  jangmi2: { x: -900, z: -760 },
+  jangmi3: { x: -900, z: -620 },
+  lotte: { x: -900, z: -400 },
+};
+export const UNITS_PER_JANGMI = 4; // 호0 ~ 호3
+export const WINDOW_BREAK_TIME_MIN = 35; // seconds before an unrescued child's window is broken into
+export const WINDOW_BREAK_TIME_MAX = 65;
+export const CHILD_PICKUP_RADIUS = 2.6;
+export const CHILD_DELIVER_RADIUS = 3.2;
+
+export const RIVER_FALL_GRACE = 3; // seconds to use the star's wish before drowning

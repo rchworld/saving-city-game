@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER_MAX_HP, BUILDING_DEFS, RESPAWN_BUILDING_ID } from './constants.js';
+import { PLAYER_MAX_HP, RESPAWN_BUILDING_ID, RIVER_FALL_GRACE } from './constants.js';
 import { clamp } from './utils.js';
 
 const MOVE_SPEED = 16;
@@ -28,6 +28,14 @@ export class Player {
     this.mountedCar = null; // Car instance the player is currently riding
     this.carOffset = null; // player's offset from the car's center while mounted
     this.onRooftopId = null; // building id if standing on a rooftop pad
+    this.interiorId = null; // interior key ('jangmi1'/'jangmi2'/'jangmi3'/'lotte') if indoors
+
+    this.fallingInRiver = false; // true during the 3s Han River drowning grace window
+    this.fallGraceTimer = 0;
+    this.diedInRiver = false; // set true for one frame if the grace window expired
+
+    this.carriedChild = null; // rescued-child ref currently being carried
+    this.carryAnchor = null; // THREE.Group the carried child's mesh is parented to
 
     this.velocityY = 0;
     this.groundY = 0; // current standing surface height
@@ -82,6 +90,41 @@ export class Player {
     this.handAnchor = new THREE.Group();
     this.handAnchor.position.set(0.35, 1.25, 0.5);
     this.group.add(this.handAnchor);
+
+    // A rescued child rides here, piggyback-style.
+    this.carryAnchor = new THREE.Group();
+    this.carryAnchor.position.set(0, 1.5, -0.35);
+    this.group.add(this.carryAnchor);
+  }
+
+  carryChild(child) {
+    if (this.carriedChild) return false;
+    this.carriedChild = child;
+    child.mesh.position.set(0, 0, 0);
+    child.mesh.rotation.set(0, 0, 0);
+    this.carryAnchor.add(child.mesh);
+    return true;
+  }
+
+  releaseCarriedChild() {
+    if (!this.carriedChild) return null;
+    const child = this.carriedChild;
+    this.carryAnchor.remove(child.mesh);
+    this.carriedChild = null;
+    return child;
+  }
+
+  enterInterior(id, worldPos) {
+    this.interiorId = id;
+    this.onRooftopId = null;
+    this.mountedCar = null;
+    this.fallingInRiver = false;
+    this.group.position.set(worldPos.x, 0, worldPos.z);
+  }
+
+  exitInterior(worldPos) {
+    this.interiorId = null;
+    this.group.position.set(worldPos.x, worldPos.y ?? 0.9, worldPos.z);
   }
 
   respawnAtBuilding(id = RESPAWN_BUILDING_ID) {
@@ -90,6 +133,9 @@ export class Player {
     this.group.position.set(pos.x, pos.y, pos.z);
     this.mountedCar = null;
     this.onRooftopId = b ? id : null;
+    this.interiorId = null;
+    this.fallingInRiver = false;
+    this.releaseCarriedChild(); // a child being carried is lost if the player dies
     this.hp = this.maxHp;
     this.invulnTimer = 1.5;
   }
@@ -116,6 +162,11 @@ export class Player {
     if (this.isDead) {
       this.respawnAtBuilding(RESPAWN_BUILDING_ID);
       this.isDead = false;
+      return;
+    }
+
+    if (this.fallingInRiver) {
+      this._updateFalling(dt);
       return;
     }
 
@@ -215,11 +266,40 @@ export class Player {
     }
     const [zMin, zMax] = world.riverZBounds;
     if (this.group.position.z > zMin && this.group.position.z < zMax) {
-      // off the deck but still over the Han River -> fell in, respawn on the apartment roof
-      this.respawnAtBuilding(RESPAWN_BUILDING_ID);
+      // off the deck but still over the Han River -> falling in, starts the grace window
+      this._startRiverFall();
       return;
     }
     this.group.position.y = 0;
+  }
+
+  _startRiverFall() {
+    if (this.fallingInRiver) return;
+    this.fallingInRiver = true;
+    this.fallGraceTimer = RIVER_FALL_GRACE;
+    this._fallStartY = this.group.position.y;
+  }
+
+  _updateFalling(dt) {
+    this.fallGraceTimer -= dt;
+    const t = clamp(1 - this.fallGraceTimer / RIVER_FALL_GRACE, 0, 1);
+    this.group.position.y = this._fallStartY - t * 6;
+    if (this.fallGraceTimer <= 0) {
+      this.fallingInRiver = false;
+      this.diedInRiver = true;
+    }
+  }
+
+  // Called when the star's wish is used while falling: interrupts the
+  // drowning, lifts the player skyward, and lands them safely inside Lotte
+  // Tower's interior.
+  escapeRiverFall(lotteWorldPos) {
+    if (!this.fallingInRiver) return false;
+    this.fallingInRiver = false;
+    this.fallGraceTimer = 0;
+    this.enterInterior('lotte', lotteWorldPos);
+    this.invulnTimer = 1.5;
+    return true;
   }
 
   _animateWalk(dt, moving) {
@@ -234,19 +314,25 @@ export class Player {
     const camYaw = this.yaw;
     const camPitch = this.pitch;
 
+    // Interiors are low-ceilinged and narrow, so pull the camera in close
+    // and low to avoid clipping through corridor walls/ceiling.
+    const distance = this.interiorId ? 3.2 : CAMERA_DISTANCE;
+    const camHeight = this.interiorId ? 1.5 : CAMERA_HEIGHT;
+    const maxY = this.interiorId ? targetPos.y + 2.5 : Infinity;
     const offset = new THREE.Vector3(
       Math.sin(camYaw) * -Math.cos(camPitch),
       Math.sin(camPitch) + 0.15,
       Math.cos(camYaw) * -Math.cos(camPitch)
-    ).multiplyScalar(CAMERA_DISTANCE);
+    ).multiplyScalar(distance);
 
     const desired = new THREE.Vector3(
       targetPos.x + offset.x,
-      targetPos.y + CAMERA_HEIGHT + offset.y * 1.4,
+      targetPos.y + camHeight + offset.y * 1.4,
       targetPos.z + offset.z
     );
 
     if (desired.y < targetPos.y + 1.2) desired.y = targetPos.y + 1.2;
+    if (desired.y > maxY) desired.y = maxY;
 
     camera.position.lerp(desired, 1);
     const lookAt = new THREE.Vector3(targetPos.x, targetPos.y + 1.6, targetPos.z);

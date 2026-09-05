@@ -11,6 +11,12 @@ const MINION_ATTACK_RADIUS = 1.5;
 const MINION_ATTACK_DAMAGE = 6;
 const MINION_ATTACK_COOLDOWN = 1.2;
 
+const STOMP_TRIGGER_RANGE = 13;
+const STOMP_RAISE_TIME = 0.6;
+const STOMP_SLAM_TIME = 0.25;
+const STOMP_DAMAGE_RADIUS = 7;
+const STOMP_DAMAGE = 22;
+
 function buildMinionMesh(kind) {
   const group = new THREE.Group();
   if (kind === 'snail') {
@@ -60,7 +66,10 @@ function buildMinionMesh(kind) {
 }
 
 export class Minion {
-  constructor(scene, pos, kind = 'imp') {
+  // `wanderBounds` optionally confines this minion to a small area (used for
+  // monsters spawned inside a building interior, which must not wander off
+  // toward the main city's coordinates).
+  constructor(scene, pos, kind = 'imp', wanderBounds = null) {
     this.kind = kind;
     this.alive = true;
     this.hp = 1;
@@ -70,6 +79,8 @@ export class Minion {
     this.group.position.set(pos.x, 0, pos.z);
     scene.add(this.group);
 
+    this.wanderBounds = wanderBounds; // { cx, cz, radius } or null for the full city
+    this.homeInteriorId = null; // set for interior-spawned monsters so they only aggro inside that interior
     this.wanderTarget = new THREE.Vector3(pos.x, 0, pos.z);
     this._pickNewWanderTarget();
     this.attackCooldown = 0;
@@ -77,6 +88,13 @@ export class Minion {
   }
 
   _pickNewWanderTarget() {
+    if (this.wanderBounds) {
+      const { cx, cz, radius } = this.wanderBounds;
+      const angle = randRange(0, Math.PI * 2);
+      const r = randRange(0, radius);
+      this.wanderTarget.set(cx + Math.cos(angle) * r, 0, cz + Math.sin(angle) * r);
+      return;
+    }
     const x = randRange(CITY_BOUNDS.minX + 10, CITY_BOUNDS.maxX - 10);
     const z = randRange(RIVER_HALF_WIDTH + 10, CITY_BOUNDS.maxZ - 10);
     this.wanderTarget.set(x, 0, z);
@@ -88,7 +106,7 @@ export class Minion {
 
     const p = this.group.position;
     const distToPlayer = dist2D(p.x, p.z, player.position.x, player.position.z);
-    const playerReachable = !player.onRooftopId && !player.mountedCar;
+    const playerReachable = !player.onRooftopId && !player.mountedCar && player.interiorId === this.homeInteriorId;
 
     let targetX, targetZ;
     if (playerReachable && distToPlayer < MINION_AGGRO_RADIUS) {
@@ -143,6 +161,10 @@ export class Boss {
     this.firingTimer = 0;
     this.targetBuilding = null;
 
+    this.stompState = 'ready'; // ready -> raise -> slam -> cooldown
+    this.stompTimer = 0;
+    this.stompCooldown = randRange(3, 6);
+
     this._buildMesh(scene);
     this.group.position.set(BOSS_SPAWN.x, 0, BOSS_SPAWN.z);
     this._wanderTarget = new THREE.Vector3(BOSS_SPAWN.x, 0, BOSS_SPAWN.z);
@@ -181,11 +203,22 @@ export class Boss {
       group.add(arm);
       this.arms.push(arm);
     }
+    this.legs = [];
     for (const side of [-1, 1]) {
+      const legPivot = new THREE.Group();
+      legPivot.position.set(side * 1.8, 7.45, 0);
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.9, 7.5, 7), limbMat);
-      leg.position.set(side * 1.8, 3.7, 0);
-      group.add(leg);
+      leg.position.set(0, -3.75, 0);
+      legPivot.add(leg);
+      group.add(legPivot);
+      this.legs.push(legPivot);
     }
+
+    const stompRingGeo = new THREE.RingGeometry(1, 8, 28);
+    stompRingGeo.rotateX(-Math.PI / 2);
+    const stompRingMat = new THREE.MeshBasicMaterial({ color: 0xff8844, transparent: true, opacity: 0, side: THREE.DoubleSide });
+    this.stompRing = new THREE.Mesh(stompRingGeo, stompRingMat);
+    scene.add(this.stompRing);
 
     const label = makeTextLabel('빨간 괴수', { color: '#ffdada', bg: 'rgba(60,0,0,0.55)' });
     label.position.set(0, 19, 0);
@@ -224,6 +257,7 @@ export class Boss {
       this.group.visible = false;
       this.beam.visible = false;
       this.telegraphRing.visible = false;
+      this.stompRing.material.opacity = 0;
       return true;
     }
     return false;
@@ -251,6 +285,68 @@ export class Boss {
     }
 
     this._updateAttackCycle(dt, ctx);
+    this._updateStomp(dt, ctx);
+  }
+
+  // A ground-slam melee attack the boss uses on nearby players in between
+  // laser cycles, so it visibly tries to squash the player up close too.
+  _updateStomp(dt, { player }) {
+    const p = this.group.position;
+    const distToPlayer = dist2D(p.x, p.z, player.position.x, player.position.z);
+
+    if (this.stompState === 'ready') {
+      this.stompCooldown -= dt;
+      if (this.stompCooldown <= 0 && this.state === 'idle' && distToPlayer < STOMP_TRIGGER_RANGE) {
+        this.stompState = 'raise';
+        this.stompTimer = STOMP_RAISE_TIME;
+      }
+      return;
+    }
+
+    if (this.stompState === 'raise') {
+      this.stompTimer -= dt;
+      const t = 1 - Math.max(0, this.stompTimer / STOMP_RAISE_TIME);
+      for (const leg of this.legs) leg.rotation.x = -t * 0.6;
+      this.group.position.y = t * 1.2;
+      if (this.stompTimer <= 0) {
+        this.stompState = 'slam';
+        this.stompTimer = STOMP_SLAM_TIME;
+      }
+      return;
+    }
+
+    if (this.stompState === 'slam') {
+      this.stompTimer -= dt;
+      const t = Math.max(0, this.stompTimer / STOMP_SLAM_TIME);
+      for (const leg of this.legs) leg.rotation.x = -t * 0.6;
+      this.group.position.y = t * 1.2;
+      if (this.stompTimer <= 0) {
+        this.group.position.y = 0;
+        for (const leg of this.legs) leg.rotation.x = 0;
+        this.stompRing.position.set(p.x, 0.25, p.z);
+        this.stompRing.material.opacity = 0.8;
+        if (dist2D(p.x, p.z, player.position.x, player.position.z) < STOMP_DAMAGE_RADIUS) {
+          player.takeDamage(STOMP_DAMAGE);
+        }
+        this.stompState = 'cooldown';
+        this.stompTimer = 0.5;
+      }
+      return;
+    }
+
+    if (this.stompRing.material.opacity > 0) {
+      this.stompRing.material.opacity = Math.max(0, this.stompRing.material.opacity - dt * 2);
+      this.stompRing.scale.setScalar(1 + (0.8 - this.stompRing.material.opacity) * 0.6);
+    }
+
+    if (this.stompState === 'cooldown') {
+      this.stompTimer -= dt;
+      if (this.stompTimer <= 0) {
+        this.stompState = 'ready';
+        this.stompCooldown = randRange(5, 9);
+        this.stompRing.scale.setScalar(1);
+      }
+    }
   }
 
   _updateAttackCycle(dt, { buildings, player, onBossFireStart, onBuildingCollapse, minionsNearPlayer, onShieldBreak }) {
@@ -343,6 +439,21 @@ export function spawnBonusMinions(scene, pos, kind, count) {
     const x = pos.x + Math.cos(angle) * 4;
     const z = pos.z + Math.sin(angle) * 4;
     list.push(new Minion(scene, { x, z }, kind));
+  }
+  return list;
+}
+
+// Monsters that pour in through a broken apartment window: confined to
+// wander only within that interior instead of heading off toward the city.
+export function spawnInteriorMinions(scene, pos, interiorId, count = 2) {
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const x = pos.x + Math.cos(angle) * 2;
+    const z = pos.z + Math.sin(angle) * 2;
+    const m = new Minion(scene, { x, z }, 'imp', { cx: pos.x, cz: pos.z, radius: 6 });
+    m.homeInteriorId = interiorId;
+    list.push(m);
   }
   return list;
 }

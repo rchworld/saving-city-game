@@ -11,6 +11,9 @@ export class UI {
     this.endOverlay = document.getElementById('end-overlay');
     this.endTitle = document.getElementById('end-title');
     this.endDesc = document.getElementById('end-desc');
+    this.rescueCount = document.getElementById('rescue-count');
+    this.dangerWarning = document.getElementById('danger-warning');
+    this.dangerBar = document.getElementById('danger-bar');
     this._toastTimer = null;
   }
 
@@ -26,12 +29,16 @@ export class UI {
     this.startOverlay.classList.add('hidden');
   }
 
-  showEnd(won) {
+  showEnd(won, reason = 'buildings') {
     this.endOverlay.classList.remove('hidden');
     if (won) {
       this.endTitle.textContent = '도시를 지켜냈다!';
       this.endTitle.style.color = '#66d97a';
       this.endDesc.textContent = '50마리의 괴수를 모두 물리쳤습니다. 잠실의 영웅이 되었습니다.';
+    } else if (reason === 'river') {
+      this.endTitle.textContent = '한강에 빠지고 말았다...';
+      this.endTitle.style.color = '#64b5f6';
+      this.endDesc.textContent = '3초 안에 별을 써서 탈출하지 못했습니다. 처음부터 다시 시작합니다.';
     } else {
       this.endTitle.textContent = '도시가 무너졌다...';
       this.endTitle.style.color = '#ff5252';
@@ -71,6 +78,22 @@ export class UI {
       slot.querySelector('.count').textContent = bag[type];
       slot.classList.toggle('equipped', held === type);
     }
+  }
+
+  setRescueCount(n, total) {
+    this.rescueCount.textContent = `${n}/${total}`;
+  }
+
+  showDanger() {
+    this.dangerWarning.classList.remove('hidden');
+  }
+
+  hideDanger() {
+    this.dangerWarning.classList.add('hidden');
+  }
+
+  setDangerProgress(progress01) {
+    this.dangerBar.style.width = `${Math.max(0, Math.min(100, (1 - progress01) * 100))}%`;
   }
 
   toast(msg) {

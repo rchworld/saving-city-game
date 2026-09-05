@@ -24,9 +24,14 @@
             <span class="label">괴수 레이저</span>
             <div class="bar-track"><div id="boss-timer" class="bar-fill boss"></div></div>
           </div>
+          <div id="rescue-wrap" class="panel">
+            <span class="label">구출</span>
+            <span id="rescue-count">0/12</span>
+          </div>
         </div>
 
         <div id="toast"></div>
+        <div id="danger-warning" class="hidden">⚠️ 한강에 빠졌다! 별(3번)을 써서 탈출하라!<div class="bar-track"><div id="danger-bar" class="bar-fill danger"></div></div></div>
 
         <div id="inventory-bar">
           <div class="slot" data-type="arrow"><span class="key">1</span><span class="icon">🏹</span><span class="count">0</span></div>
@@ -45,7 +50,9 @@
             <li><b>마우스</b> — 카메라 회전 (클릭해서 시작)</li>
             <li><b>숫자키 1~4</b> — 아이템 꺼내기 / 넣기 (화살·방패·별·칼)</li>
             <li><b>Enter</b> — 손에 든 아이템 사용</li>
+            <li><b>Ctrl</b> — 아이 안기 / 내려놓기 (아파트 안에서)</li>
           </ul>
+          <p>장미아파트·롯데타워 입구로 들어가면 건물 안으로 들어갑니다. 아파트 복도에서 창문이 깨지기 전에 아이를 안아 밖의 차로 옮기세요. 한강에 빠지면 3초 안에 별을 써야 롯데타워로 탈출합니다 — 못 쓰면 처음부터 다시 시작!</p>
           <div id="start-btn">클릭해서 시작하기</div>
         </div>
 

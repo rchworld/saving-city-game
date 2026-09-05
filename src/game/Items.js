@@ -4,6 +4,7 @@ import { dist2D, randRange, clamp } from './utils.js';
 
 export const ITEM_ORDER = ['arrow', 'shield', 'star', 'sword'];
 const ITEM_DAMAGE_TO_BOSS = { arrow: 1, sword: 2, meteor: 8 };
+const WISH_FLASH_DURATION = 1.4;
 
 const PICKUP_SPOTS = [
   { x: -20, z: 40, type: 'arrow' }, { x: 30, z: 55, type: 'arrow' }, { x: -60, z: 140, type: 'arrow' },
@@ -80,12 +81,13 @@ function buildHeldItemMesh(type) {
 // Handles world pickups, the player's bag, the currently-equipped item, and
 // every item-use effect (arrow / shield / meteor shower / sword).
 export class ItemSystem {
-  constructor(scene, player, enemyGetter, buildings, ui) {
+  constructor(scene, player, enemyGetter, buildings, ui, interiors) {
     this.scene = scene;
     this.player = player;
     this.getEnemies = enemyGetter; // () => [minions..., boss]
     this.buildings = buildings;
     this.ui = ui;
+    this.interiors = interiors;
 
     this.bag = { arrow: 2, shield: 1, star: 1, sword: 1 };
     this.held = null;
@@ -95,6 +97,7 @@ export class ItemSystem {
     this.meteors = [];
     this.meteorShowerTimer = 0;
     this.skyDarkT = 0; // 0..1 blend toward night sky during star event
+    this.wishFlashT = 0; // >0 briefly brightens the sky when the wish saves the player
 
     this.swordSwingFlash = 0;
 
@@ -196,7 +199,17 @@ export class ItemSystem {
     for (const b of this.buildings) {
       if (b.kind === 'jangmi' && !b.isCollapsed) b.protect(METEOR_SHOWER_DURATION + 2);
     }
-    this.ui.toast('별똥별이 쏟아진다!');
+    this.ui.toast('별똥별이 쏟아진다! 소원을 빈다...');
+
+    // The wish: if the player is currently drowning in the Han River, the
+    // sky flashes bright and the star saves them, landing inside Lotte Tower.
+    if (this.player.fallingInRiver) {
+      const saved = this.player.escapeRiverFall(this.interiors.lotteInterior.wishArrivalWorldPos);
+      if (saved) {
+        this.wishFlashT = WISH_FLASH_DURATION;
+        this.ui.toast('소원이 이루어졌다! 롯데타워 안으로 무사히!');
+      }
+    }
   }
 
   _spawnMeteor() {
@@ -260,6 +273,8 @@ export class ItemSystem {
   }
 
   update(dt) {
+    if (this.wishFlashT > 0) this.wishFlashT = Math.max(0, this.wishFlashT - dt);
+
     for (const pk of this.pickups) {
       if (pk.collected) continue;
       pk.update(dt);
