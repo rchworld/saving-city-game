@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>도시를 지켜라 3D</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas"></canvas>
+
+      <div id="hud">
+        <div id="top-bar">
+          <div id="health-wrap" class="panel">
+            <span class="label">HP</span>
+            <div class="bar-track"><div id="health-bar" class="bar-fill"></div></div>
+          </div>
+          <div id="monster-wrap" class="panel">
+            <span class="label">몬스터</span>
+            <span id="monster-count">50</span>
+          </div>
+          <div id="boss-wrap" class="panel">
+            <span class="label">괴수 레이저</span>
+            <div class="bar-track"><div id="boss-timer" class="bar-fill boss"></div></div>
+          </div>
+        </div>
+
+        <div id="toast"></div>
+
+        <div id="inventory-bar">
+          <div class="slot" data-type="arrow"><span class="key">1</span><span class="icon">🏹</span><span class="count">0</span></div>
+          <div class="slot" data-type="shield"><span class="key">2</span><span class="icon">🛡️</span><span class="count">0</span></div>
+          <div class="slot" data-type="star"><span class="key">3</span><span class="icon">🌠</span><span class="count">0</span></div>
+          <div class="slot" data-type="sword"><span class="key">4</span><span class="icon">🗡️</span><span class="count">0</span></div>
+        </div>
+
+        <div id="crosshair"></div>
+
+        <div id="start-overlay">
+          <h1>도시를 지켜라 3D</h1>
+          <p>잠실대교 위에서 시작합니다. 롯데타워, 장미아파트, 향군타워, 삼성 CDS타워를 거대한 빨간 괴수로부터 지켜내세요.</p>
+          <ul>
+            <li><b>방향키</b> — 이동</li>
+            <li><b>마우스</b> — 카메라 회전 (클릭해서 시작)</li>
+            <li><b>숫자키 1~4</b> — 아이템 꺼내기 / 넣기 (화살·방패·별·칼)</li>
+            <li><b>Enter</b> — 손에 든 아이템 사용</li>
+          </ul>
+          <div id="start-btn">클릭해서 시작하기</div>
+        </div>
+
+        <div id="end-overlay" class="hidden">
+          <h1 id="end-title"></h1>
+          <p id="end-desc"></p>
+          <div id="restart-btn">다시 시작</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
