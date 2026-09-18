@@ -5,17 +5,17 @@ import {
 } from './constants.js';
 import { dist2D, randRange, randChoice, makeTextLabel } from './utils.js';
 
-const MINION_SPEED = 3.2;
-const MINION_AGGRO_RADIUS = 14;
+const MINION_SPEED = 3.6;
+const MINION_AGGRO_RADIUS = 18;
 const MINION_ATTACK_RADIUS = 1.5;
-const MINION_ATTACK_DAMAGE = 6;
-const MINION_ATTACK_COOLDOWN = 1.2;
+const MINION_ATTACK_DAMAGE = 12;
+const MINION_ATTACK_COOLDOWN = 0.9;
 
 const STOMP_TRIGGER_RANGE = 13;
 const STOMP_RAISE_TIME = 0.6;
 const STOMP_SLAM_TIME = 0.25;
 const STOMP_DAMAGE_RADIUS = 7;
-const STOMP_DAMAGE = 22;
+const STOMP_DAMAGE = 30;
 
 function buildMinionMesh(kind) {
   const group = new THREE.Group();
@@ -392,7 +392,10 @@ export class Boss {
             if (onShieldBreak) onShieldBreak();
           }
         } else {
-          player.takeDamage(dt * 20);
+          // Fixed per-tick amount, not dt-scaled: takeDamage's own brief
+          // invulnerability window gates how often this actually lands, so a
+          // dt-scaled amount would be diluted into near-nothing.
+          player.takeDamage(7);
         }
       }
 

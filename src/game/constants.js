@@ -66,10 +66,10 @@ export const MINION_COUNT = TOTAL_MONSTERS - 1;
 
 export const BOSS_MAX_HP = 50;
 export const BOSS_LASER_INTERVAL = 30; // seconds
-export const BOSS_LASER_TELEGRAPH = 1; // seconds of warning before beam fires
+export const BOSS_LASER_TELEGRAPH = 2; // seconds of warning before beam fires (reacting in time to protect a building)
 export const BOSS_LASER_DURATION = 3; // seconds of sustained beam -> collapse
 
-export const PLAYER_MAX_HP = 100;
+export const PLAYER_MAX_HP = 70;
 
 export const ITEM_TYPES = {
   arrow: { label: '화살', icon: '🏹' },

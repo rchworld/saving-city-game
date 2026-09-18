@@ -284,6 +284,11 @@ function animate() {
       minionsNearPlayer,
       onBuildingCollapse,
       onShieldBreak: () => itemSystem.onShieldBreak(),
+      onBossFireStart: (targetBuilding) => {
+        if (targetBuilding.kind === 'jangmi') {
+          ui.toast('괴수가 장미아파트를 노린다! 3번(별)+Enter로 지켜라!');
+        }
+      },
     });
     for (const b of buildings) b.update(dt);
 

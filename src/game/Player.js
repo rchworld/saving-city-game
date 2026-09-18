@@ -144,7 +144,7 @@ export class Player {
     if (this.invulnTimer > 0 || this.isDead) return;
     if (this.shieldActive) return; // shield blocks all incoming damage while up
     this.hp = clamp(this.hp - amount, 0, this.maxHp);
-    this.invulnTimer = 0.4;
+    this.invulnTimer = 0.2;
     if (this.hp <= 0) {
       this.isDead = true;
     }
